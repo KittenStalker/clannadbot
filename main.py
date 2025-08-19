@@ -1,10 +1,11 @@
 import telebot, re, random, enum
+from bot_token import bot_token
 
 class BotStatus(enum.Enum):
     online = 1
     sleep = 0
 
-bot = telebot.TeleBot('8055201129:AAHQh8kQZYGRjftT3WL5wPgWmdYhXI8BqE4')
+bot = telebot.TeleBot(bot_token)
 
 nagisa_sad_sticker = 'CAACAgIAAxkBAAERhJ5oo_YJITxUxUIGXb64Vxd7xqoeLAACg4YAAl2PIUmPmpXMowVj8TYE'
 nagisa_wow_sticker = 'CAACAgIAAxkBAAERhLBoo_95eiBEE4mr2P6C3G0kbsKh0QACt4YAAjVnIUk7SNjgkB21-zYE'
@@ -22,7 +23,7 @@ ortho_rika_list_weight = [0.4, 0.2, 0.2, 0.2]
 bot_status_list = ['Сплю💤...', 'Онлайн🍡']
 bot_status = 'Неизвестно'
 
-answer_list = ['Да.', 'Д-да...', 'Конечно!', 'Нет.', 'Ни в коем случае!', 'Ни за что.']
+answer_list = ['Да.', 'Д-да...', 'Конечно!', 'Нет.', 'Ни в коем случае!', 'Ни за что.', 'Возможно', 'Мало вероятно', 'Даже не знаю...']
 
 fuck_you_percent: float = 0.2 # шанс отреагировать на восклицательный знак "иди нахуй"
 ortho_rika_percent: float = 0.3 # шанс отреагировать на восклицательный знак Рикой
@@ -41,7 +42,6 @@ def set_status(status: str):
     description = bot.get_my_short_description()
     print(f'Настоящее описание: {description}')
 
-
 try:
     # Устанавливаем описание при запуске
     bot_status = bot_status_list[BotStatus.online.value]
@@ -52,12 +52,82 @@ try:
     @bot.message_handler(content_types='text')
     def message_reply(message):
         # !кланнад и ответ со стикером
-        if message.text.lower() == "!кланнад" or message.text.lower() == "! кланнад":
+        if (message.text.lower() == "!кланнад" or message.text.lower() == "! кланнад" or
+                message.text.lower() == "!кланад" or message.text.lower() == "! кланад"):
             bot.send_sticker(
                 message.chat.id,
                 sticker=nagisa_sad_sticker,
                 reply_to_message_id=message.message_id
             )
+
+        # Приветствие для Нагисы
+        elif contains_word(message.text, 'Привет') and (contains_word(message.text, 'Нагиса')
+                                                        or contains_word(message.text, 'Фурукава')):
+            bot.send_message(
+                message.chat.id,
+                text=f'Привет, {message.from_user.first_name}!'
+                     f'\nНа данный момент я {bot_status}',
+                reply_to_message_id=message.message_id
+            )
+
+        # Нагиса это кал?
+        elif contains_word(message.text, 'Нагиса') and contains_word(message.text, 'кал') and message.text.endswith('?'):
+            if random.randint(0,1) == 0:
+                bot.send_message(
+                    message.chat.id,
+                    text='кал',
+                    reply_to_message_id=message.message_id
+                )
+            else:
+                bot.send_message(
+                    message.chat.id,
+                    text='не кал',
+                    reply_to_message_id=message.message_id
+                )
+            random_rika = random.choices(ortho_rika_list, weights=ortho_rika_list_weight, k=1)[0]
+            bot.send_sticker(message.chat.id,
+                             sticker=random_rika,
+                             reply_to_message_id=message.message_id
+            )
+
+        # Нагиса кал
+        elif contains_word(message.text, 'Нагиса кал'):
+            bot.send_message(
+                message.chat.id,
+                text='Ты ебало то свое закрой, сынок',
+                reply_to_message_id=message.message_id
+            )
+            random_rika = random.choices(ortho_rika_list, weights=ortho_rika_list_weight, k=1)[0]
+            bot.send_sticker(message.chat.id,
+                             sticker=random_rika,
+                             reply_to_message_id=message.message_id
+            )
+
+        # Это правда?
+        elif contains_word(message.text, 'Нагиса') and (contains_word(message.text, 'правда') or message.text.endswith('?')):
+            bot.send_message(
+                message.chat.id,
+                text=random.choice(answer_list),
+                reply_to_message_id=message.message_id
+            )
+
+        # Упоминание Нагисы
+        elif contains_word(message.text, 'Нагиса') or contains_word(message.text, 'Таракан'):
+            if random.random() < fuck_you_percent:
+                bot.send_message(
+                    message.chat.id,
+                    text='Иди нахуй.',
+                    reply_to_message_id=message.message_id
+                )
+            random_rika = random.choices(ortho_rika_list, weights=ortho_rika_list_weight, k=1)[0]
+            bot.send_sticker(message.chat.id,
+                             sticker=random_rika,
+                             reply_to_message_id=message.message_id
+            )
+
+        # Упоминание Олега в чате TODO: сделать с маленьким шансом какую  нибудь реакцию
+        elif contains_word(message.text, 'Олег'):
+            pass
 
         # не кал
         elif contains_word(message.text, 'не кал'):
@@ -73,46 +143,14 @@ try:
                 sticker=denis_reaction_bad_sticker
             )
 
-        # Приветствие для Нагисы
-        elif contains_word(message.text, 'Привет') and (contains_word(message.text, 'Нагиса')
-                                                        or contains_word(message.text, 'Фурукава')):
-            bot.send_message(
-                message.chat.id,
-                text=f'Привет, {message.from_user.first_name}!'
-                     f'\nНа данный момент я {bot_status}',
-                reply_to_message_id=message.message_id
-            )
-
-        # Это правда?
-        elif contains_word(message.text, 'Нагиса') and contains_word(message.text, 'правда') :
-            bot.send_message(
-                message.chat.id,
-                text=random.choice(answer_list),
-                reply_to_message_id=message.message_id
-            )
-
-        # Приветствие для Олега
-        elif contains_word(message.text, 'Привет') and contains_word(message.text, 'Олег'):
-            bot.send_message(
-                message.chat.id,
-                text='Привет, Олег!',
-            )
-            bot.send_sticker(
-                message.chat.id,
-                sticker=nagisa_wow_sticker
-            )
-
-        # Упоминание Олега в чате TODO: сделать с маленьким шансом какую  нибудь реакцию
-        elif contains_word(message.text, 'Олег'):
-            pass
-
         # Команды
+        # TODO: доделать описание команд
         elif message.text.lower() == "!помогите":
             bot.send_message(
                 message.chat.id,
-                text='Привет! Я Нагиса Лакищтар и я могу отвечать на следующие сообщения: '
-                     '\n!кланнад, кал / не кал, Олег'
-                     '\nПожалуйста не пишите все подряд с восклицательным знаком',
+                text='Привет! Я Нагиса или же Девочка таракан и я:'
+                     '\n* Могу отвечать на !кланнад'
+                     '\n* Могу погадать на картах Рё, напишите мое имя с "правда" в предложении или с вопросом в конце.',
                 reply_to_message_id=message.message_id
             )
 
@@ -122,6 +160,12 @@ try:
                 bot.send_message(
                     message.chat.id,
                     text='Иди нахуй.',
+                    reply_to_message_id=message.message_id
+                )
+            else:
+                bot.send_message(
+                    message.chat.id,
+                    text='Нет такой команды!',
                     reply_to_message_id=message.message_id
                 )
             if random.random() < ortho_rika_percent:
@@ -141,3 +185,5 @@ finally:
 
 #TODO: в ответку на олега сделать отдельный файл, где будут сообщения по типу "привет поиграй в мою любимую игру "нейм""
 #TODO: на малого в ответ добавить "пожалуйста верните" или "я все верну"
+#TODO: error happened добавить, расширить списки, сделать рефактор
+#TODO: сделать консоль с командами
