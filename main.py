@@ -1,12 +1,11 @@
 import telebot, re, random, enum
 from bot_token import bot_token
 
-class BotStatus(enum.Enum):
-    online = 1
-    sleep = 0
+import requests, logging
 
-bot = telebot.TeleBot(bot_token)
+bot = telebot.TeleBot(bot_token, skip_pending=True)
 
+# Стикеры
 nagisa_sad_sticker = 'CAACAgIAAxkBAAERhJ5oo_YJITxUxUIGXb64Vxd7xqoeLAACg4YAAl2PIUmPmpXMowVj8TYE'
 nagisa_wow_sticker = 'CAACAgIAAxkBAAERhLBoo_95eiBEE4mr2P6C3G0kbsKh0QACt4YAAjVnIUk7SNjgkB21-zYE'
 denis_reaction_good_sticker = 'CAACAgIAAxkBAAERhKRoo_uKiU4YXCa9VTwgqbJiBUowQAACdkQAAq8cIUtHAVz9Vxhq3TYE'
@@ -29,10 +28,16 @@ fuck_you_percent: float = 0.2 # шанс отреагировать на вос�
 ortho_rika_percent: float = 0.3 # шанс отреагировать на восклицательный знак Рикой
 oleg_percent: float = 0.2 # шанс отреагировать на упоминание Олега
 
+class BotStatus(enum.Enum):
+    online = 1
+    sleep = 0
+
+# Поиск слова в сообщении
 def contains_word(text, word):
     pattern = r'\b' + re.escape(word) + r'\b'
     return bool(re.search(pattern, text, flags=re.IGNORECASE))
 
+# Обновление статуса в описании
 def set_status(status: str):
     bot.set_my_short_description(
         short_description='Волшебная девочка таракан'
@@ -42,12 +47,35 @@ def set_status(status: str):
     description = bot.get_my_short_description()
     print(f'Настоящее описание: {description}')
 
+# Получает случайное изображение с Safebooru по тегу clannad
+def safebooru_search(tags, limit):
+    try:
+        url = "https://safebooru.org/index.php"
+        params = {
+            'page': 'dapi',
+            's': 'post',
+            'q': 'index',
+            'tags': tags,
+            'limit': limit,
+            'json': 1
+        }
+
+        response = requests.get(url, params=params, timeout=15)
+        response.raise_for_status()
+
+        data = response.json()
+        return data if isinstance(data, list) else []
+
+    except Exception as e:
+        logging.error(f"Search error: {e}")
+        return []
+
+
 try:
     # Устанавливаем описание при запуске
     bot_status = bot_status_list[BotStatus.online.value]
     set_status(bot_status)
     print("Bot is active...")
-
 
     @bot.message_handler(content_types='text')
     def message_reply(message):
@@ -85,9 +113,10 @@ try:
                     reply_to_message_id=message.message_id
                 )
             random_rika = random.choices(ortho_rika_list, weights=ortho_rika_list_weight, k=1)[0]
-            bot.send_sticker(message.chat.id,
-                             sticker=random_rika,
-                             reply_to_message_id=message.message_id
+            bot.send_sticker(
+                message.chat.id,
+                sticker=random_rika,
+                reply_to_message_id=message.message_id
             )
 
         # Нагиса кал
@@ -98,9 +127,10 @@ try:
                 reply_to_message_id=message.message_id
             )
             random_rika = random.choices(ortho_rika_list, weights=ortho_rika_list_weight, k=1)[0]
-            bot.send_sticker(message.chat.id,
-                             sticker=random_rika,
-                             reply_to_message_id=message.message_id
+            bot.send_sticker(
+                message.chat.id,
+                sticker=random_rika,
+                reply_to_message_id=message.message_id
             )
 
         # Это правда?
@@ -110,6 +140,20 @@ try:
                 text=random.choice(answer_list),
                 reply_to_message_id=message.message_id
             )
+
+        # Кланнад картинки
+        # elif contains_word(message.text, 'Нагиса') and contains_word(message.text, 'порно'):
+        #     posts_found = safebooru_search("clannad", 100)
+        #     if not posts_found:
+        #         bot.send_message(message.chat.id, "❌ Изображения не найдены")
+        #         return
+        #     post = random.choice(posts_found)
+        #     image_url = f"https://safebooru.org/images/{post['directory']}/{post['image']}"
+        #     caption = ("🎨 Рандомная картинка по кланнаду!")
+        #     bot.send_photo(
+        #         message.chat.id, image_url,
+        #         caption=caption,
+        #         reply_to_message_id=message.message_id)
 
         # Упоминание Нагисы
         elif contains_word(message.text, 'Нагиса') or contains_word(message.text, 'Таракан'):
@@ -150,7 +194,8 @@ try:
                 message.chat.id,
                 text='Привет! Я Нагиса или же Девочка таракан и я:'
                      '\n* Могу отвечать на !кланнад'
-                     '\n* Могу погадать на картах Рё, напишите мое имя с "правда" в предложении или с вопросом в конце.',
+                     '\n* Могу погадать на картах Рё, напишите мое имя с "правда" в предложении или с вопросом в конце.'
+                     '\n* Могу определить является ли что либо калом, напишите мое имя с "кал" и вопросов в конце',
                 reply_to_message_id=message.message_id
             )
 
@@ -185,5 +230,5 @@ finally:
 
 #TODO: в ответку на олега сделать отдельный файл, где будут сообщения по типу "привет поиграй в мою любимую игру "нейм""
 #TODO: на малого в ответ добавить "пожалуйста верните" или "я все верну"
-#TODO: error happened добавить, расширить списки, сделать рефактор
 #TODO: сделать консоль с командами
+#TODO: реакция на данго разными репликами
