@@ -1,4 +1,6 @@
-import telebot, re, random, enum
+import telebot, re, random
+from telebot.types import ReactionTypeEmoji
+
 from bot_token import bot_token
 
 bot = telebot.TeleBot(bot_token, skip_pending=True)
@@ -17,9 +19,6 @@ ortho_rika_box = 'CAACAgIAAxkBAAERhO1opA2OlXH-1Gr7ftpcRVsOR9Q3nAACp3cAAlebUUsBAA
 ortho_rika_list = [ortho_rika_angry, ortho_rika_calm, ortho_rika_hand, ortho_rika_box]
 ortho_rika_list_weight = [0.4, 0.2, 0.2, 0.2]
 
-bot_status_list = ['Сплю💤...', 'Онлайн🍡']
-bot_status = 'Неизвестно'
-
 answer_list = ['Да.', 'Д-да...', 'Конечно!', 'Нет.', 'Ни в коем случае!', 'Ни за что.', 'Возможно', 'Мало вероятно', 'Даже не знаю...', 'Нужно подумать...']
 curse_list = ['Иди нахуй.', 'Ты за кого меня держишь', 'Не хочу.', 'Нипааа~', 'Я тебе не Олег']
 
@@ -28,13 +27,12 @@ user_blacklist = {
 }
 admin = '1070873517'
 
+dice_warning = 2
+dice_counter = 0
+
 curse_percent: float = 0.2 # шанс отреагировать на восклицательный знак ругательством
 ortho_rika_percent: float = 0.3 # шанс отреагировать на восклицательный знак Рикой
 oleg_percent: float = 0.2 # шанс отреагировать на упоминание Олега
-
-class BotStatus(enum.Enum):
-    online = 1
-    sleep = 0
 
 # Поиск слова в сообщении
 def contains_word(text, word):
@@ -45,7 +43,6 @@ def contains_word(text, word):
 def set_status(status: str):
     bot.set_my_short_description(
         short_description='Волшебная девочка таракан'
-                          f'\nСтатус: {status}'
                           '\n\nНапишите !помогите для команд'
     )
     description = bot.get_my_short_description()
@@ -72,7 +69,6 @@ def send_random_rika(message):
         reply_to_message_id=message.message_id
     )
 
-#TODO
 def send_random_curse(message):
     bot.send_message(
         message.chat.id,
@@ -90,8 +86,7 @@ def handle_clannad_command(message):
 def handle_hello_command(message):
     bot.send_message(
         message.chat.id,
-        text=f'Привет, {message.from_user.first_name}!'
-             f'\nНа данный момент я {bot_status}',
+        text=f'Привет, {message.from_user.first_name}!',
         reply_to_message_id=message.message_id
     )
 
@@ -183,74 +178,80 @@ def handle_info_command(message):
           f"\nЮзернейм: {message.from_user.username}"
           f"\nТелеграмм ID: {user_id}")
 
-try:
-    # Устанавливаем описание при запуске
-    bot_status = bot_status_list[BotStatus.online.value]
-    set_status(bot_status)
-    print("Bot is active...")
 
-    # Обработчик сообщений
-    @bot.message_handler(content_types='text')
-    def message_reply(message):
-        if not should_process_message(message):
-            return
+print('Нагиса работает...')
 
-        if contains_word(message.text, 'Нагиса') or contains_word(message.text, 'Фурукава'):
+# Обработчик сообщений
+@bot.message_handler(content_types=['text'])
+def message_reply(message):
+    if not should_process_message(message):
+        return
 
-            # Нагиса это кал?
-            if contains_word(message.text, 'кал') and message.text.endswith('?'):
-                handle_kal_question_command(message)
+    if message.from_user.id == admin: # ид Гебуры 539065613
+        bot.set_message_reaction(message.chat.id, message.id, [ReactionTypeEmoji('👍')], is_big=False)
 
-            # Скажи
-            elif contains_word(message.text, 'Скажи'):
-                handle_say_command(message)
+    if contains_word(message.text, 'Нагиса') or contains_word(message.text, 'Фурукава'):
 
-            # Приветствие для Нагисы
-            elif contains_word(message.text, 'Привет'):
-                handle_hello_command(message)
+        # Нагиса это кал?
+        if contains_word(message.text, 'кал') and message.text.endswith('?'):
+            handle_kal_question_command(message)
 
-            # Гадание
-            elif message.text.endswith('?'):
-                handle_truth_command(message)
+        # Скажи
+        elif contains_word(message.text, 'Скажи'):
+            handle_say_command(message)
 
-            # Простое упоминание Нагисы
-            else:
-                handle_nagisa_mention(message)
+        # Приветствие для Нагисы
+        elif contains_word(message.text, 'Привет'):
+            handle_hello_command(message)
 
-        # Упоминание Олега в чате TODO: сделать с маленьким шансом какую  нибудь реакцию
-        elif contains_word(message.text, 'Олег'):
-            handle_oleg_mention(message)
+        # Гадание
+        elif message.text.endswith('?'):
+            handle_truth_command(message)
 
-        # не кал
-        elif contains_word(message.text, 'не кал'):
-            handle_kal_mention(message)
+        # Простое упоминание Нагисы
+        else:
+            handle_nagisa_mention(message)
 
-        # кал
-        elif contains_word(message.text, 'кал'):
-            handle_not_kal_mention(message)
+    # Упоминание Олега в чате TODO: сделать с маленьким шансом какую  нибудь реакцию
+    elif contains_word(message.text, 'Олег'):
+        handle_oleg_mention(message)
 
-        # !кланнад и ответ со стикером
-        elif (message.text.lower() == "!кланнад" or message.text.lower() == "! кланнад" or
-                message.text.lower() == "!кланад" or message.text.lower() == "! кланад"):
-            handle_clannad_command(message)
+    # не кал
+    elif contains_word(message.text, 'не кал'):
+        handle_kal_mention(message)
 
-        # Команды
-        # TODO: доделать описание команд
-        elif message.text.lower() == "!помогите":
-            handle_help_command(message)
+    # кал
+    elif contains_word(message.text, 'кал'):
+        handle_not_kal_mention(message)
 
-        # Ответ Рикой на любое сообщение с восклицательного знака
-        elif message.text.startswith('!'):
-            handle_exclamation_command(message)
+    # !кланнад и ответ со стикером
+    elif (message.text.lower() == "!кланнад" or message.text.lower() == "! кланнад" or
+            message.text.lower() == "!кланад" or message.text.lower() == "! кланад"):
+        handle_clannad_command(message)
 
-        handle_info_command(message)
+    # Команды
+    # TODO: доделать описание команд
+    elif message.text.lower() == "!помогите":
+        handle_help_command(message)
 
-    bot.infinity_polling()
+    # Ответ Рикой на любое сообщение с восклицательного знака
+    elif message.text.startswith('!'):
+        handle_exclamation_command(message)
 
-finally:
-    print("\nИзменяем описание перед выходом...")
-    bot_status = bot_status_list[BotStatus.sleep.value]
-    set_status(bot_status)
+    # handle_info_command(message)
+
+prev_dice_message = 0
+
+# Удаление дайсов
+@bot.message_handler(content_types=['dice'])
+def handle_text(message):
+    if message.dice:
+        bot.delete_message(message.chat.id, prev_dice_message)
+
+
+
+
+bot.infinity_polling()
 
 
 
