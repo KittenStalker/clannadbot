@@ -1,4 +1,5 @@
 import telebot, re, random
+import yarche
 from telebot.types import ReactionTypeEmoji
 
 from bot_token import bot_token
@@ -8,6 +9,8 @@ bot = telebot.TeleBot(bot_token, skip_pending=True)
 # Стикеры
 nagisa_sad_sticker = 'CAACAgIAAxkBAAERhJ5oo_YJITxUxUIGXb64Vxd7xqoeLAACg4YAAl2PIUmPmpXMowVj8TYE'
 nagisa_wow_sticker = 'CAACAgIAAxkBAAERhLBoo_95eiBEE4mr2P6C3G0kbsKh0QACt4YAAjVnIUk7SNjgkB21-zYE'
+nagisa_tasik_sticker = 'CAACAgIAAxkBAAEUOOVpJwk24aTznCZ00xK_HodyO7n4fQACt4YAAjVnIUk7SNjgkB21-zYE'
+
 denis_reaction_good_sticker = 'CAACAgIAAxkBAAERhKRoo_uKiU4YXCa9VTwgqbJiBUowQAACdkQAAq8cIUtHAVz9Vxhq3TYE'
 denis_reaction_bad_sticker = 'CAACAgIAAxkBAAERgxRoo3_gmxcmYnewVH5aC3rOL046KgACL0oAAlnSIUsdIM4-jAPMjDYE'
 
@@ -21,6 +24,7 @@ ortho_rika_list_weight = [0.4, 0.2, 0.2, 0.2]
 
 answer_list = ['Да.', 'Д-да...', 'Конечно!', 'Нет.', 'Ни в коем случае!', 'Ни за что.', 'Возможно', 'Мало вероятно', 'Даже не знаю...', 'Нужно подумать...']
 curse_list = ['Иди нахуй.', 'Ты за кого меня держишь', 'Не хочу.', 'Нипааа~', 'Я тебе не Олег']
+mention_list = ['Слушаюсь!', 'Не расслышала!', 'Привет!', 'Данго!']
 
 user_blacklist = {
     6564147478: 'Малой',
@@ -31,6 +35,7 @@ dice_warning = 2
 dice_counter = 0
 
 curse_percent: float = 0.2 # шанс отреагировать на восклицательный знак ругательством
+sticker_percent: float = 0.5 # шанс на стикер
 ortho_rika_percent: float = 0.3 # шанс отреагировать на восклицательный знак Рикой
 oleg_percent: float = 0.2 # шанс отреагировать на упоминание Олега
 
@@ -39,14 +44,14 @@ def contains_word(text, word):
     pattern = r'\b' + re.escape(word) + r'\b'
     return bool(re.search(pattern, text, flags=re.IGNORECASE))
 
-# Обновление статуса в описании
-def set_status(status: str):
-    bot.set_my_short_description(
-        short_description='Волшебная девочка таракан'
-                          '\n\nНапишите !помогите для команд'
-    )
-    description = bot.get_my_short_description()
-    print(f'Настоящее описание: {description}')
+# # Обновление статуса в описании
+# def set_status(status: str):
+#     bot.set_my_short_description(
+#         short_description='Волшебная девочка таракан'
+#                           '\n\nНапишите !помогите для команд'
+#     )
+#     description = bot.get_my_short_description()
+#     print(f'Настоящее описание: {description}')
 
 # Проверка на блэклист
 def is_user_blacklisted(user_id: int) -> bool:
@@ -148,12 +153,19 @@ def handle_say_command(message):
 def handle_nagisa_mention(message):
     if random.random() < curse_percent:
         send_random_curse(message)
+        send_random_rika(message)
+    elif random.random() < sticker_percent:
+        bot.send_sticker(
+            message.chat.id,
+            sticker=nagisa_tasik_sticker,
+            reply_to_message_id=message.message_id
+        )
     else:
         bot.send_message(
             message.chat.id,
-            text='Слушаюсь!',
+            text=random.choice(mention_list),
         )
-    send_random_rika(message)
+        send_random_rika(message)
 
 #TODO
 def handle_oleg_mention(message):
@@ -178,19 +190,38 @@ def handle_info_command(message):
           f"\nЮзернейм: {message.from_user.username}"
           f"\nТелеграмм ID: {user_id}")
 
+# Обработчик рейтинга ярче
+def handle_yarche_rating(message):
+    bot.send_message(
+        message.chat.id,
+        text=yarche.handle_rating(),
+    )
 
 print('Нагиса работает...')
 
-# Обработчик сообщений
+
 @bot.message_handler(content_types=['text'])
 def message_reply(message):
     if not should_process_message(message):
         return
 
-    if message.from_user.id == admin: # ид Гебуры 539065613
-        bot.set_message_reaction(message.chat.id, message.id, [ReactionTypeEmoji('👍')], is_big=False)
+    # if message.from_user.id == admin: # ид Гебуры 539065613
+    #     bot.set_message_reaction(message.chat.id, message.id, [ReactionTypeEmoji('👍')], is_big=False)
 
-    if contains_word(message.text, 'Нагиса') or contains_word(message.text, 'Фурукава'):
+    if (contains_word(message.text, 'Ярче') or contains_word(message.text, 'нищемаркет')
+            or contains_word(message.text, 'нищий маркет')):
+        if contains_word(message.text, 'рейтинг'):
+            handle_yarche_rating(message)
+        else:
+            messageYarche = yarche.handle_yarche_mention(message.from_user.first_name, message.from_user.username)
+            if messageYarche != "":
+                bot.send_message(
+                    message.chat.id,
+                    text=messageYarche,
+                )
+
+
+    if contains_word(message.text, 'Нагиса') or contains_word(message.text, 'Таракан'):
 
         # Нагиса это кал?
         if contains_word(message.text, 'кал') and message.text.endswith('?'):
@@ -238,7 +269,7 @@ def message_reply(message):
     elif message.text.startswith('!'):
         handle_exclamation_command(message)
 
-    # handle_info_command(message)
+    handle_info_command(message)
 
 prev_dice_message = 0
 
